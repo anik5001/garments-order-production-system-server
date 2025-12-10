@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -33,6 +33,7 @@ async function run() {
 
     const userCollection = db.collection("users");
     const productCollection = db.collection("products");
+    const orderBookingCollection = db.collection("order-booking");
 
     // user api
     app.post("/user", async (req, res) => {
@@ -57,6 +58,29 @@ async function run() {
 
     app.get("/products", async (req, res) => {
       const result = await productCollection.find().toArray();
+      res.send(result);
+    });
+    // details product api
+    app.get("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await productCollection.findOne(query);
+      console.log("details hit");
+      res.send(result);
+    });
+    // booking  product details api
+    // app.get("/booking-product/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const query = { _id: new ObjectId(id) };
+    //   const result = await productCollection.findOne(query);
+    //   console.log("details ");
+    //   res.send(result);
+    // });
+
+    // order booking
+    app.post("/order-booking", async (req, res) => {
+      const body = req.body;
+      const result = await orderBookingCollection.insertOne(body);
       res.send(result);
     });
 
