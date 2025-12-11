@@ -55,7 +55,18 @@ async function run() {
     });
 
     // products api
-
+    // latest product api
+    app.get("/latest-product", async (req, res) => {
+      const result = await productCollection
+        .find()
+        .sort({
+          createdAt: -1,
+        })
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
+    //all products api
     app.get("/products", async (req, res) => {
       const result = await productCollection.find().toArray();
       res.send(result);
@@ -66,6 +77,12 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await productCollection.findOne(query);
       console.log("details hit");
+      res.send(result);
+    });
+    // Add product
+    app.post("/products", async (req, res) => {
+      const data = req.body;
+      const result = await productCollection.insertOne(data);
       res.send(result);
     });
     // booking  product details api
