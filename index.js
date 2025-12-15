@@ -1,6 +1,9 @@
+require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_KEY);
+
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
+
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
@@ -60,7 +63,7 @@ async function run() {
       const result = await productCollection
         .find()
         .sort({
-          createdAt: -1,
+          createdAt: 1,
         })
         .limit(6)
         .toArray();
@@ -99,6 +102,74 @@ async function run() {
       const body = req.body;
       const result = await orderBookingCollection.insertOne(body);
       res.send(result);
+    });
+
+    // payment apis
+
+    app.post("/create-checkout-session", async (req, res) => {
+      const paymentInfo = req.body;
+      console.log(paymentInfo);
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            // Provide the exact Price ID (for example, price_1234) of the product you want to sell
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: paymentInfo?.productName,
+              },
+              unit_amount: paymentInfo?.orderPrice * 100,
+            },
+            quantity: 1,
+          },
+        ],
+        customer_email: paymentInfo.userEmail,
+        mode: "payment",
+        metadata: {
+          productId: paymentInfo?.productId,
+          customer: paymentInfo?.firstName + " " + paymentInfo.lastName,
+          // orderQty: paymentInfo?.orderQty,
+          // phone: paymentInfo?.phone,
+          // address: paymentInfo?.address,
+          // notes: paymentInfo?.notes,
+        },
+        success_url: `${process.env.CLIENT_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.CLIENT_DOMAIN}/booking-product/${paymentInfo?.productId}`,
+      });
+
+      res.send({ url: session.url });
+    });
+
+    app.post("/payment-success", async (req, res) => {
+      const { sessionId } = req.body;
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const product = await productCollection.findOne({
+        _id: new ObjectId(session.metadata.productId),
+      });
+      console.log(session);
+      if (session.status === "complete") {
+        const orderInfo = {
+          productId: session.metadata.productId,
+          customerName: session.metadata.customer,
+          transactionId: session.payment_intent,
+          userEmail: session.customer_email,
+
+          productName: product.productName,
+          unitPrice: product.price,
+          orderQty: session.metadata.orderQty,
+          orderPrice: session.amount_total / 100,
+          paymentMethod: "payfast",
+
+          phone: session.metadata.phone,
+          address: session.metadata.address,
+          notes: session.metadata.notes,
+          status: "pending",
+          createdAt: new Date(),
+        };
+        // console.log(orderInfo);
+        const result = await orderBookingCollection.insertOne(orderInfo);
+        res.send(result);
+      }
     });
 
     // Send a ping to confirm a successful connection
