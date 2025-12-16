@@ -103,8 +103,13 @@ async function run() {
       const result = await orderBookingCollection.insertOne(body);
       res.send(result);
     });
+    // all order api
+    app.get("/order-booking", async (req, res) => {
+      const result = await orderBookingCollection.find().toArray();
+      res.send(result);
+    });
 
-    // order get api
+    // order get api by email
     app.get("/my-orders/:email", async (req, res) => {
       const email = req.params.email;
       const result = await orderBookingCollection
