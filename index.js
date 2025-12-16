@@ -82,6 +82,17 @@ async function run() {
       // console.log("details hit");
       res.send(result);
     });
+    // products find by email
+    app.get("/my-products/:email", async (req, res) => {
+      console.log("hit product by email");
+      const email = req.params.email;
+      const result = await productCollection
+        .find({
+          createdBy: email,
+        })
+        .toArray();
+      res.send(result);
+    });
     // Add product
     app.post("/products", async (req, res) => {
       const data = req.body;
