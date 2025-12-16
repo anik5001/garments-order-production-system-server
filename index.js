@@ -79,7 +79,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await productCollection.findOne(query);
-      console.log("details hit");
+      // console.log("details hit");
       res.send(result);
     });
     // Add product
@@ -104,37 +104,61 @@ async function run() {
       res.send(result);
     });
 
+    // order get api
+    app.get("/my-orders/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await orderBookingCollection
+        .find({
+          userEmail: email,
+        })
+        .toArray();
+      res.send(result);
+    });
+
     // payment apis
 
+    // alternative way
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
-      console.log(paymentInfo);
+
       const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+
+        customer_email: paymentInfo.userEmail,
+
         line_items: [
           {
-            // Provide the exact Price ID (for example, price_1234) of the product you want to sell
             price_data: {
               currency: "usd",
               product_data: {
-                name: paymentInfo?.productName,
+                name: paymentInfo.productName,
               },
-              unit_amount: paymentInfo?.orderPrice * 100,
+              unit_amount: Math.round(paymentInfo.orderPrice * 100),
             },
             quantity: 1,
           },
         ],
-        customer_email: paymentInfo.userEmail,
-        mode: "payment",
+
         metadata: {
-          productId: paymentInfo?.productId,
-          customer: paymentInfo?.firstName + " " + paymentInfo.lastName,
-          // orderQty: paymentInfo?.orderQty,
-          // phone: paymentInfo?.phone,
-          // address: paymentInfo?.address,
-          // notes: paymentInfo?.notes,
+          productId: paymentInfo.productId,
+          productName: paymentInfo.productName,
+          orderQty: String(paymentInfo.orderQty),
+          unitPrice: String(paymentInfo.unitPrice),
+          orderPrice: String(paymentInfo.orderPrice),
+
+          firstName: paymentInfo.firstName,
+          lastName: paymentInfo.lastName,
+
+          phone: paymentInfo.phone,
+          address: paymentInfo.address,
+          notes: paymentInfo.notes || "",
+
+          paymentMethod: "payfast",
         },
+
         success_url: `${process.env.CLIENT_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.CLIENT_DOMAIN}/booking-product/${paymentInfo?.productId}`,
+        cancel_url: `${process.env.CLIENT_DOMAIN}/booking-product/${paymentInfo.productId}`,
       });
 
       res.send({ url: session.url });
@@ -142,34 +166,60 @@ async function run() {
 
     app.post("/payment-success", async (req, res) => {
       const { sessionId } = req.body;
+
       const session = await stripe.checkout.sessions.retrieve(sessionId);
-      const product = await productCollection.findOne({
-        _id: new ObjectId(session.metadata.productId),
-      });
-      console.log(session);
-      if (session.status === "complete") {
-        const orderInfo = {
-          productId: session.metadata.productId,
-          customerName: session.metadata.customer,
-          transactionId: session.payment_intent,
-          userEmail: session.customer_email,
+      // console.log(session);
 
-          productName: product.productName,
-          unitPrice: product.price,
-          orderQty: session.metadata.orderQty,
-          orderPrice: session.amount_total / 100,
-          paymentMethod: "payfast",
-
-          phone: session.metadata.phone,
-          address: session.metadata.address,
-          notes: session.metadata.notes,
-          status: "pending",
-          createdAt: new Date(),
-        };
-        // console.log(orderInfo);
-        const result = await orderBookingCollection.insertOne(orderInfo);
-        res.send(result);
+      if (session.payment_status !== "paid") {
+        return res.status(400).send({ message: "Payment not completed" });
       }
+      const order = await orderBookingCollection.findOne({
+        transactionId: session.payment_intent,
+      });
+      // console.log(order);
+      if (order) {
+        return;
+      }
+      const orderInfo = {
+        productId: session.metadata.productId,
+        productName: session.metadata.productName,
+
+        userEmail: session.customer_email,
+        customerName:
+          session.metadata.firstName + " " + session.metadata.lastName,
+
+        unitPrice: Number(session.metadata.unitPrice),
+        orderQty: Number(session.metadata.orderQty),
+        orderPrice: Number(session.metadata.orderPrice),
+
+        transactionId: session.payment_intent,
+        paymentMethod: session.metadata.paymentMethod,
+
+        phone: session.metadata.phone,
+        address: session.metadata.address,
+        notes: session.metadata.notes,
+
+        status: "pending",
+        createdAt: new Date(),
+      };
+
+      const result = await orderBookingCollection.insertOne(orderInfo);
+      // update product quantity
+      await productCollection.updateOne(
+        {
+          _id: new ObjectId(session.metadata.productId),
+        },
+        {
+          $inc: {
+            quantity: -Number(session.metadata.orderQty),
+          },
+        }
+      );
+
+      res.send({
+        success: true,
+        orderId: result.insertedId,
+      });
     });
 
     // Send a ping to confirm a successful connection
