@@ -5,13 +5,32 @@ const express = require("express");
 const cors = require("cors");
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-
+const admin = require("firebase-admin");
 const app = express();
 const port = process.env.PORT || 3000;
+const serviceAccount = require("./garments-order-production-adminSDK.json");
 
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 // middleware
 app.use(express.json());
 app.use(cors());
+
+const verifyJWT = async (req, res, next) => {
+  const token = req?.headers?.authorization?.split(" ")[1];
+  console.log(token);
+  if (!token) return res.status(401).send({ message: "Unauthorized Access!" });
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.tokenEmail = decoded.email;
+    console.log(decoded);
+    next();
+  } catch (err) {
+    console.log(err);
+    return res.status(401).send({ message: "Unauthorized Access!", err });
+  }
+};
 
 app.get("/", (req, res) => {
   res.send("Garments order and production tacker system !");
@@ -52,8 +71,8 @@ async function run() {
       res.send(result);
     });
     // get user role
-    app.get("/user/role/:email", async (req, res) => {
-      const email = req.params.email;
+    app.get("/user/role", verifyJWT, async (req, res) => {
+      const email = req.tokenEmail;
 
       const result = await userCollection.findOne({ email: email });
       res.send({ role: result?.userRole });
@@ -85,9 +104,9 @@ async function run() {
       res.send(result);
     });
     // products find by email
-    app.get("/my-products/:email", async (req, res) => {
+    app.get("/my-products", verifyJWT, async (req, res) => {
       // console.log("hit product by email");
-      const email = req.params.email;
+      const email = req.tokenEmail;
       const result = await productCollection
         .find({
           createdBy: email,
@@ -123,8 +142,8 @@ async function run() {
     });
 
     // order get api by email
-    app.get("/my-orders/:email", async (req, res) => {
-      const email = req.params.email;
+    app.get("/my-orders", verifyJWT, async (req, res) => {
+      const email = req.tokenEmail;
       const result = await orderBookingCollection
         .find({
           userEmail: email,
