@@ -51,10 +51,12 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+    // get user role
+    app.get("/user/role/:email", async (req, res) => {
+      const email = req.params.email;
 
-    app.get("/user", async (req, res) => {
-      const result = await userCollection.find().toArray();
-      res.send(result);
+      const result = await userCollection.findOne({ email: email });
+      res.send({ role: result?.userRole });
     });
 
     // products api
@@ -84,7 +86,7 @@ async function run() {
     });
     // products find by email
     app.get("/my-products/:email", async (req, res) => {
-      console.log("hit product by email");
+      // console.log("hit product by email");
       const email = req.params.email;
       const result = await productCollection
         .find({
