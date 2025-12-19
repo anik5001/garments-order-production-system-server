@@ -19,15 +19,15 @@ app.use(cors());
 
 const verifyJWT = async (req, res, next) => {
   const token = req?.headers?.authorization?.split(" ")[1];
-  console.log(token);
+  // console.log(token);
   if (!token) return res.status(401).send({ message: "Unauthorized Access!" });
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     req.tokenEmail = decoded.email;
-    console.log(decoded);
+    // console.log(decoded);
     next();
   } catch (err) {
-    console.log(err);
+    // console.log(err);
     return res.status(401).send({ message: "Unauthorized Access!", err });
   }
 };
@@ -50,7 +50,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     const db = client.db("garments-order-production-system-DB");
 
     const userCollection = db.collection("users");
@@ -70,12 +70,20 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+    // all user api
+    app.get("/user", async (req, res) => {
+      const result = await userCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.send(result);
+    });
     // get user role
     app.get("/user/role", verifyJWT, async (req, res) => {
       const email = req.tokenEmail;
 
       const result = await userCollection.findOne({ email: email });
-      res.send({ role: result?.userRole });
+      res.send({ role: result?.userRole, status: result?.status });
     });
 
     // products api
@@ -260,7 +268,7 @@ async function run() {
     });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
