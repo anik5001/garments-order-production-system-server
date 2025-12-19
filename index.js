@@ -98,7 +98,13 @@ async function run() {
       const result = await userCollection.updateOne(query, updatedStatus);
       res.send(result);
     });
-
+    //  Delete user Api
+    app.delete("/user/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
     // products api
     // latest product api
     app.get("/latest-product", async (req, res) => {
@@ -141,6 +147,20 @@ async function run() {
       const result = await productCollection.insertOne(data);
       res.send(result);
     });
+    // update product api
+    app.patch("/products/:id", verifyJWT, async (req, res) => {
+      console.log("updated hitt");
+      const data = req.body;
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updatedData = {
+        $set: {
+          ...data,
+        },
+      };
+      const result = await productCollection.updateOne(query, updatedData);
+      res.send(result);
+    });
     // booking  product details api
     // app.get("/booking-product/:id", async (req, res) => {
     //   const id = req.params.id;
@@ -170,6 +190,14 @@ async function run() {
           userEmail: email,
         })
         .toArray();
+      res.send(result);
+    });
+
+    // order details by id
+    app.get("/order-details/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await orderBookingCollection.findOne(query);
       res.send(result);
     });
 
