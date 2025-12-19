@@ -85,6 +85,19 @@ async function run() {
       const result = await userCollection.findOne({ email: email });
       res.send({ role: result?.userRole, status: result?.status });
     });
+    // user update by id
+    app.patch("/user/:id", verifyJWT, async (req, res) => {
+      const status = req.body.status;
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updatedStatus = {
+        $set: {
+          status: status,
+        },
+      };
+      const result = await userCollection.updateOne(query, updatedStatus);
+      res.send(result);
+    });
 
     // products api
     // latest product api
