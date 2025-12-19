@@ -149,7 +149,7 @@ async function run() {
     });
     // update product api
     app.patch("/products/:id", verifyJWT, async (req, res) => {
-      console.log("updated hitt");
+      // console.log("updated hitt");
       const data = req.body;
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -159,6 +159,13 @@ async function run() {
         },
       };
       const result = await productCollection.updateOne(query, updatedData);
+      res.send(result);
+    });
+    // delete product by id
+    app.delete("/delete-product/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await productCollection.deleteOne(query);
       res.send(result);
     });
     // booking  product details api
@@ -198,6 +205,33 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await orderBookingCollection.findOne(query);
+      res.send(result);
+    });
+    // order updated api
+    app.patch("/order-update/:id", verifyJWT, async (req, res) => {
+      const data = req.body;
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updatedData = {
+        $set: {
+          ...data,
+        },
+      };
+      const result = await orderBookingCollection.updateOne(query, updatedData);
+      res.send(result);
+    });
+    // tracking apis order updated
+    app.patch("/orders/add-tracking/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const trackingInfo = req.body;
+      const query = { _id: new ObjectId(id) };
+
+      const updateDoc = {
+        $push: { trackingHistory: trackingInfo },
+        $set: { currentStatus: trackingInfo.status }, // Optional: track the latest status
+      };
+
+      const result = await orderBookingCollection.updateOne(query, updateDoc);
       res.send(result);
     });
 
